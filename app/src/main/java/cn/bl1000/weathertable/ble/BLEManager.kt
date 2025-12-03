@@ -15,6 +15,7 @@ import android.util.Log
 import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
 import java.util.*
+import java.util.concurrent.CompletableFuture
 
 /**
  * BLE工具类，兼容不同Android版本，处理动态权限，提供易用的API
@@ -24,12 +25,15 @@ class BLEManager private constructor(private val context: Context) {
     private var bluetoothAdapter: BluetoothAdapter? = null
     private var bluetoothLeScanner: BluetoothLeScanner? = null
     private var gatt: BluetoothGatt? = null
-    private var connectedDevice: BluetoothDevice? = null
+    var connectedDevice: BluetoothDevice? = null
+        private set
     
     private var onDeviceFoundListener: ((BluetoothDevice, Int, ByteArray) -> Unit)? = null
     private var onConnectionStateChangeListener: ((Boolean) -> Unit)? = null
     private var onDataReceivedListener: ((UUID, ByteArray) -> Unit)? = null
     private var onServicesDiscoveredListener: ((List<BluetoothGattService>) -> Unit)? = null
+    private var writeCallbacks: MutableMap<Int, CompletableFuture<Boolean>> = mutableMapOf()
+    private var mtuCallback: CompletableFuture<Int>? = null
     
     companion object {
         @Volatile
@@ -44,7 +48,10 @@ class BLEManager private constructor(private val context: Context) {
         const val REQUEST_ENABLE_BT = 1001
         const val REQUEST_PERMISSIONS = 1002
         val SERVICE_UUID = UUID.fromString("4fafc201-1fb5-459e-8fcc-c5c9c331914b")
+        val CHARACTERISTIC_UUID = UUID.fromString("beb5483e-36e1-4688-b7f5-ea07361b26a8")
         const val TAG = "BLEManager"
+        const val DEFAULT_MTU = 23
+        const val MAX_MTU = 517
     }
     
     init {
@@ -201,8 +208,12 @@ class BLEManager private constructor(private val context: Context) {
     /**
      * 检查是否已连接到指定设备
      */
-    fun isConnectedToDevice(device: BluetoothDevice): Boolean {
-        return connectedDevice?.address == device.address
+    fun isConnectedToDevice(device: BluetoothDevice?): Boolean {
+        return if (device == null) {
+            false
+        } else {
+            connectedDevice?.address == device.address
+        }
     }
     
     /**
@@ -216,6 +227,45 @@ class BLEManager private constructor(private val context: Context) {
         } else {
             false
         }
+    }
+    
+    /**
+     * 异步发送数据到指定特征，等待写入完成
+     */
+    fun sendDataAsync(serviceUUID: UUID, characteristicUUID: UUID, data: ByteArray): CompletableFuture<Boolean> {
+        val future = CompletableFuture<Boolean>()
+        
+        val characteristic = gatt?.getService(serviceUUID)?.getCharacteristic(characteristicUUID)
+        if (characteristic != null) {
+            characteristic.value = data
+            val result = gatt?.writeCharacteristic(characteristic) ?: false
+            if (!result) {
+                future.complete(false)
+            } else {
+                // 将future保存起来，在回调中完成
+                writeCallbacks[characteristic.hashCode()] = future
+            }
+        } else {
+            future.complete(false)
+        }
+        
+        return future
+    }
+    
+    /**
+     * 请求交换MTU大小
+     */
+    fun requestMtu(mtu: Int): CompletableFuture<Int> {
+        val future = CompletableFuture<Int>()
+        mtuCallback = future
+        
+        val result = gatt?.requestMtu(mtu) ?: false
+        if (!result) {
+            future.complete(DEFAULT_MTU)
+            mtuCallback = null
+        }
+        
+        return future
     }
     
     /**
@@ -308,6 +358,30 @@ class BLEManager private constructor(private val context: Context) {
                     }
                 }
             }
+        }
+        
+        override fun onCharacteristicWrite(
+            gatt: BluetoothGatt?,
+            characteristic: BluetoothGattCharacteristic?,
+            status: Int
+        ) {
+            super.onCharacteristicWrite(gatt, characteristic, status)
+            Log.d(TAG, "特征写入完成，状态: $status")
+            
+            // 完成对应的future
+            characteristic?.let {
+                val future = writeCallbacks.remove(it.hashCode())
+                future?.complete(status == BluetoothGatt.GATT_SUCCESS)
+            }
+        }
+        
+        override fun onMtuChanged(gatt: BluetoothGatt?, mtu: Int, status: Int) {
+            super.onMtuChanged(gatt, mtu, status)
+            Log.d(TAG, "MTU变更: mtu=$mtu, status=$status")
+            
+            // 完成MTU交换的future
+            mtuCallback?.complete(if (status == BluetoothGatt.GATT_SUCCESS) mtu else DEFAULT_MTU)
+            mtuCallback = null
         }
         
         override fun onCharacteristicChanged(
