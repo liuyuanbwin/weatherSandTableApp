@@ -372,17 +372,6 @@ class FirstFragment : Fragment() {
     private fun sendImageData(bitmap: Bitmap) {
         Thread {
             try {
-                // 计算图像数据总大小
-                val totalPixels = bitmap.width * bitmap.height
-                val pixelDataSize = totalPixels * 3 // 每个像素3字节(RGB)
-                val totalImageDataSize = 1 + pixelDataSize // 加上开始命令的1字节
-                
-                Log.d(TAG, "图像信息:")
-                Log.d(TAG, "  分辨率: ${bitmap.width} x ${bitmap.height}")
-                Log.d(TAG, "  总像素数: $totalPixels")
-                Log.d(TAG, "  像素数据大小: $pixelDataSize 字节")
-                Log.d(TAG, "  图像数据总大小: $totalImageDataSize 字节")
-                
                 // 1. 请求交换MTU大小以提高传输速度
                 val mtuFuture = bleManager.requestMtu(BLEManager.MAX_MTU)
                 currentMtu = mtuFuture.get(5, TimeUnit.SECONDS)
@@ -407,6 +396,7 @@ class FirstFragment : Fragment() {
                 
                 // 3. 发送图像数据
                 var totalSent = 0
+                val totalPixels = bitmap.width * bitmap.height
                 val pixels = IntArray(totalPixels)
                 bitmap.getPixels(pixels, 0, bitmap.width, 0, 0, bitmap.width, bitmap.height)
                 
@@ -415,21 +405,8 @@ class FirstFragment : Fragment() {
                 val maxPixelsPerPacket = (currentMtu - 4) / 3
                 Log.d(TAG, "每个数据包最多可发送像素数: $maxPixelsPerPacket")
                 
-                // 计算总包数
-                var totalPackets = 0
-                var i = 0
-                while (i < totalPixels) {
-                    val remainingPixels = totalPixels - i
-                    val pixelsToSend = minOf(remainingPixels, maxPixelsPerPacket)
-                    totalPackets++
-                    i += pixelsToSend
-                }
-                
-                Log.d(TAG, "总数据包数: $totalPackets")
-                
                 // 分批发送数据
-                i = 0
-                var packetCount = 0
+                var i = 0
                 while (i < totalPixels) {
                     // 计算本次发送的数据量
                     val remainingPixels = totalPixels - i
@@ -465,7 +442,6 @@ class FirstFragment : Fragment() {
                     }
                     
                     // 更新进度
-                    packetCount++
                     totalSent += pixelsToSend
                     val progress = (totalSent * 100) / totalPixels
                     requireActivity().runOnUiThread {
@@ -475,7 +451,7 @@ class FirstFragment : Fragment() {
                     i += pixelsToSend
                     
                     // 控制发送速度，避免缓冲区溢出
-                    if (packetCount % 10 == 0) { // 每10个包等待一次
+                    if (i % 10 == 0) { // 每10个包等待一次
                         Thread.sleep(SEND_DELAY_MS)
                     }
                 }
@@ -496,14 +472,9 @@ class FirstFragment : Fragment() {
                 // 发送完成
                 requireActivity().runOnUiThread {
                     binding.sendProgress.progress = 100
-                    Toast.makeText(context, "图片发送完成，使用MTU: $currentMtu\n总数据包数: $packetCount", Toast.LENGTH_LONG).show()
+                    Toast.makeText(context, "图片发送完成，使用MTU: $currentMtu", Toast.LENGTH_SHORT).show()
                     resetSendUI()
                 }
-                
-                // 输出详细统计信息
-                Log.d(TAG, "传输统计:")
-                Log.d(TAG, "  实际发送数据包数: $packetCount")
-                Log.d(TAG, "  总发送字节数: ${packetCount * (currentMtu - 3)} (估算)")
             } catch (e: Exception) {
                 Log.e(TAG, "发送图片数据时出错", e)
                 requireActivity().runOnUiThread {
