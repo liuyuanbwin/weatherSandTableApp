@@ -34,6 +34,7 @@ import android.bluetooth.BluetoothDevice
 import android.util.Log
 import java.util.concurrent.CompletableFuture
 import java.util.concurrent.TimeUnit
+import cn.bl1000.weathertable.OneStrokePathGenerator
 
 
 /**
@@ -55,6 +56,7 @@ class FirstFragment : Fragment() {
     private var processedBitmap: Bitmap? = null
     private lateinit var bleManager: BLEManager
     private var currentMtu: Int = BLEManager.DEFAULT_MTU
+    private lateinit var pathGenerator: OneStrokePathGenerator
 
     companion object {
         private const val TAG = "FirstFragment"
@@ -82,6 +84,12 @@ class FirstFragment : Fragment() {
         
         // 初始化BLE管理器
         bleManager = BLEManager.getInstance(requireContext())
+        // 初始化一笔画路径生成器
+        pathGenerator = OneStrokePathGenerator()
+
+        binding.selectImageButton.setOnClickListener {
+            showImagePickerOptions()
+        }
 
         binding.selectImageButton.setOnClickListener {
             showImagePickerOptions()
@@ -101,6 +109,11 @@ class FirstFragment : Fragment() {
         
         binding.sendBleButton.setOnClickListener {
             sendImageViaBLE()
+        }
+        
+        // 添加一键画路径生成功能按钮
+        binding.generatePathButton.setOnClickListener {
+            generateOneStrokePath()
         }
     }
 
@@ -185,6 +198,7 @@ class FirstFragment : Fragment() {
                 imageView.setImageBitmap(bitmap)
                 binding.editButtonsLayout.visibility = View.VISIBLE
                 binding.processImageButton.visibility = View.VISIBLE
+                binding.generatePathButton.visibility = View.VISIBLE
                 currentRotation = 0f
             }
         }
@@ -199,6 +213,7 @@ class FirstFragment : Fragment() {
             imageView.setImageBitmap(bitmap)
             binding.editButtonsLayout.visibility = View.VISIBLE
             binding.processImageButton.visibility = View.VISIBLE
+            binding.generatePathButton.visibility = View.VISIBLE
             
             // 如果之前处理过图片，隐藏处理后的图片
             processedImageView.visibility = View.GONE
@@ -208,8 +223,6 @@ class FirstFragment : Fragment() {
             
             // 显示原始图片
             imageView.visibility = View.VISIBLE
-            binding.editButtonsLayout.visibility = View.VISIBLE
-            binding.processImageButton.visibility = View.VISIBLE
             
             // 重置旋转角度
             currentRotation = 0f
@@ -304,6 +317,7 @@ class FirstFragment : Fragment() {
             imageView.visibility = View.GONE
             binding.editButtonsLayout.visibility = View.GONE
             binding.processImageButton.visibility = View.GONE
+            binding.generatePathButton.visibility = View.GONE
             
             // 严格按照128*128分辨率处理
             val scaledBitmap = Bitmap.createScaledBitmap(originalBitmap, 128, 128, true)
@@ -346,6 +360,36 @@ class FirstFragment : Fragment() {
             
             // 显示发送按钮
             binding.sendBleButton.visibility = View.VISIBLE
+        }
+    }
+    
+    /**
+     * 生成一笔画路径
+     */
+    private fun generateOneStrokePath() {
+        // 生成一个示例emoji mask
+        val mask = pathGenerator.emojiToMask("❄", 128)
+        
+        if (mask != null) {
+            // 生成一笔画路径
+            val result = pathGenerator.buildOneStrokeZigzagPathWithAutoBridges(mask)
+            
+            // 显示mask
+            val maskBitmap = pathGenerator.maskToBitmap(result.mask)
+            imageView.setImageBitmap(maskBitmap)
+            imageView.visibility = View.VISIBLE
+            
+            // 显示路径
+            val pathBitmap = pathGenerator.pathToBitmap(result.path, 128, 128)
+            processedImageView.setImageBitmap(pathBitmap)
+            processedImageView.visibility = View.VISIBLE
+            
+            // 显示按钮
+            binding.sendBleButton.visibility = View.VISIBLE
+            
+            Toast.makeText(context, "生成了一笔画路径，共${result.path.size}个点", Toast.LENGTH_LONG).show()
+        } else {
+            Toast.makeText(context, "无法生成emoji mask", Toast.LENGTH_SHORT).show()
         }
     }
     

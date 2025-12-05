@@ -71,6 +71,18 @@
             app:layout_constraintEnd_toEndOf="parent"
             app:layout_constraintStart_toStartOf="parent"
             app:layout_constraintTop_toBottomOf="@id/edit_buttons_layout" />
+            
+        <Button
+            android:id="@+id/generate_path_button"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="16dp"
+            android:text="生成一笔画路径"
+            android:visibility="visible"
+            app:layout_constraintBottom_toTopOf="@id/processed_image_view"
+            app:layout_constraintEnd_toEndOf="parent"
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintTop_toBottomOf="@id/process_image_button" />
 
         <ImageView
             android:id="@+id/processed_image_view"
