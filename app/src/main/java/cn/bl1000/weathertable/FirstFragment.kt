@@ -372,7 +372,7 @@ class FirstFragment : Fragment() {
         
         if (mask != null) {
             // 生成一笔画路径
-            val result = pathGenerator.buildOneStrokeZigzagPathWithAutoBridges(mask)
+            val result = pathGenerator.buildOptimizedOneStrokePath(mask)
             
             // 显示mask
             val maskBitmap = pathGenerator.maskToBitmap(result.mask)
@@ -380,7 +380,7 @@ class FirstFragment : Fragment() {
             imageView.visibility = View.VISIBLE
             
             // 显示路径
-            val pathBitmap = pathGenerator.pathToBitmap(result.path, 128, 128)
+            val pathBitmap = pathGenerator.pathToBitmapWithPathRevisits(result.path, 128, 128)
             processedImageView.setImageBitmap(pathBitmap)
             processedImageView.visibility = View.VISIBLE
             
