@@ -44,7 +44,7 @@ class OneStrokePathFragment : Fragment() {
     private var pathResult: OneStrokePathGenerator.PathResult? = null
 
     companion object {
-        private const val PROCESS_SIZE = 512  // 处理分辨率改为512*512
+        private const val PROCESS_SIZE = 256  // 处理分辨率改为256*256
     }
 
     // 使用Activity Result API替代已弃用的startActivityForResult
@@ -350,48 +350,30 @@ class OneStrokePathFragment : Fragment() {
                     // 显示当前绘制结果
                     binding.ivResult.setImageBitmap(bitmap)
                     
-                    currentIndex++
-                    handler.postDelayed(this, 2) // 2ms间隔，加快绘制速度
-                } else if (currentIndex == path.size - 1) {
-                    // 绘制最后一段
-                    val currentPoint = path[currentIndex]
-                    if (currentIndex > 0) {
-                        val prevPoint = path[currentIndex - 1]
-                        // 移除相邻检查，始终绘制连线以确保"笔不离纸"效果
-                        val paint = Paint().apply {
-                            strokeWidth = 6f * 2 // 2倍放大，更粗的笔画
-                            style = Paint.Style.STROKE
-                            isAntiAlias = true
-                            strokeCap = Paint.Cap.ROUND
-                            strokeJoin = Paint.Join.ROUND
-                            color = getColorForIndex(currentIndex, path.size) // 最后一段独立着色
-                        }
-                        
-                        // 创建只包含最后一段的路径
-                        val segmentPath = Path()
-                        segmentPath.moveTo(
-                            prevPoint.x.toFloat() * 2 + 1f,
-                            prevPoint.y.toFloat() * 2 + 1f
-                        )
-                        segmentPath.lineTo(
-                            currentPoint.x.toFloat() * 2 + 1f,
-                            currentPoint.y.toFloat() * 2 + 1f
-                        )
-                        
-                        // 在画布上绘制最后一段路径
-                        canvas.drawPath(segmentPath, paint)
+                    // 更新进度提示
+                    if (currentIndex % 50 == 0 || currentIndex > path.size * 0.95) {
+                        val progress = (currentIndex * 100 / path.size)
+                        binding.tvProgress.text = "绘制进度: $progress%"
                     }
                     
+                    currentIndex++
+                    // 如果接近完成，增加绘制速度
+                    if (currentIndex > path.size * 0.95) {
+                        handler.postDelayed(this, 0) // 最后5%的点使用0ms间隔
+                    } else {
+                        handler.postDelayed(this, 1) // 1ms间隔，加快绘制速度
+                    }
+                } else {
+                    // 绘制完成
                     // 显示最终结果
                     binding.ivResult.setImageBitmap(bitmap)
+                    binding.tvProgress.visibility = View.GONE
                     
                     Toast.makeText(
                         context, 
                         "一口画路径绘制完成，共${path.size}个点", 
                         Toast.LENGTH_LONG
                     ).show()
-                    
-                    currentIndex++
                 }
             }
         }
@@ -464,15 +446,23 @@ class OneStrokePathFragment : Fragment() {
         connectedMask?.let { mask ->
             // 在后台线程执行耗时操作
             CoroutineScope(Dispatchers.Main).launch {
-                Toast.makeText(context, "正在生成一口画路径，请稍候...", Toast.LENGTH_SHORT).show()
+                binding.tvProgress.visibility = View.VISIBLE
+                binding.tvProgress.text = "正在生成一口画路径，请稍候..."
                 
                 pathResult = withContext(Dispatchers.IO) {
-                    // 使用优化的路径生成算法
-                    pathGenerator.buildOptimizedOneStrokePath(mask)
+                    // 使用优化的路径生成算法，带进度回调
+                    pathGenerator.buildOptimizedOneStrokePath(mask, progressCallback = object : OneStrokePathGenerator.ProgressCallback {
+                        override fun onProgress(progress: Int, message: String) {
+                            // 在主线程更新UI
+                            CoroutineScope(Dispatchers.Main).launch {
+                                binding.tvProgress.text = "生成路径中($progress%): $message"
+                            }
+                        }
+                    })
                 }
                 
+                binding.tvProgress.text = "正在动态绘制一口画路径，共${pathResult!!.path.size}个点..."
                 // 动态显示绘制过程
-                Toast.makeText(context, "正在动态绘制一口画路径...", Toast.LENGTH_SHORT).show()
                 animatePathDrawing(pathResult!!.path, mask)
             }
         } ?: run {

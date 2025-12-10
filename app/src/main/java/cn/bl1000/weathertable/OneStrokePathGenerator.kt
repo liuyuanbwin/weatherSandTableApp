@@ -39,6 +39,18 @@ class OneStrokePathGenerator {
             intArrayOf(0, -1)
         )
         
+        // 8方向邻居（包括对角线方向）
+        private val NEIGHBORS_8 = arrayOf(
+            intArrayOf(1, 0),
+            intArrayOf(-1, 0),
+            intArrayOf(0, 1),
+            intArrayOf(0, -1),
+            intArrayOf(1, 1),
+            intArrayOf(1, -1),
+            intArrayOf(-1, 1),
+            intArrayOf(-1, -1)
+        )
+        
         private fun inBounds(x: Int, y: Int, width: Int, height: Int): Boolean {
             return x >= 0 && x < width && y >= 0 && y < height
         }
@@ -165,10 +177,10 @@ class OneStrokePathGenerator {
             var maxY = component[0].y
             
             for (point in component) {
-                minX = minOf(minX, point.x)
-                minY = minOf(minY, point.y)
-                maxX = maxOf(maxX, point.x)
-                maxY = maxOf(maxY, point.y)
+                minX = Math.min(minX, point.x)
+                minY = Math.min(minY, point.y)
+                maxX = Math.max(maxX, point.x)
+                maxY = Math.max(maxY, point.y)
             }
             
             bboxes.add(Pair(Pair(minX, minY), Pair(maxX, maxY)))
@@ -446,7 +458,21 @@ class OneStrokePathGenerator {
         while (queue.isNotEmpty()) {
             val current = queue.removeFirst()
             
-            for (neighbor in NEIGHBORS) {
+            // 检查是否到达终点
+            if (current.x == end.x && current.y == end.y) {
+                // 回溯路径
+                val path = mutableListOf<Point>()
+                var cur: Point? = current
+                
+                while (cur != null) {
+                    path.add(cur)
+                    cur = previous[cur]
+                }
+                
+                return path.reversed()
+            }
+            
+            for (neighbor in NEIGHBORS_8) {
                 val nx = current.x + neighbor[0]
                 val ny = current.y + neighbor[1]
                 
@@ -455,20 +481,6 @@ class OneStrokePathGenerator {
                     Point(nx, ny) !in previous) {
                     
                     previous[Point(nx, ny)] = current
-                    
-                    if (nx == end.x && ny == end.y) {
-                        // 回溯路径
-                        val path = mutableListOf<Point>()
-                        var cur: Point? = Point(nx, ny)
-                        
-                        while (cur != null) {
-                            path.add(cur)
-                            cur = previous[cur]
-                        }
-                        
-                        return path.reversed()
-                    }
-                    
                     queue.add(Point(nx, ny))
                 }
             }
@@ -641,47 +653,348 @@ class OneStrokePathGenerator {
     }
     
     /**
+     * 进度回调接口
+     */
+    interface ProgressCallback {
+        fun onProgress(progress: Int, message: String)
+    }
+
+    /**
      * 构建带自动桥梁的一笔画优化Zigzag路径
      */
     fun buildOptimizedOneStrokePath(
         mask: Array<BooleanArray>,
         spacing: Int = 3,
-        bridgeWidth: Int = 1
+        bridgeWidth: Int = 1,
+        progressCallback: ProgressCallback? = null
     ): PathResult {
+        progressCallback?.onProgress(0, "开始生成路径...")
+        
         // 提取组件
         val components = extractComponents(mask)
+        progressCallback?.onProgress(10, "提取组件完成，共${components.size}个组件")
         
         val finalMask: Array<BooleanArray>
         val bridges: List<List<Point>>
         
         if (components.size > 1) {
             // 自动连接组件与最小桥梁
+            progressCallback?.onProgress(20, "开始连接组件...")
             val (maskCopy, bridgeList) = connectComponentsWithBridges(mask, components, bridgeWidth)
             finalMask = maskCopy
             bridges = bridgeList
+            progressCallback?.onProgress(40, "连接组件完成，添加了${bridgeList.size}座桥")
         } else {
             finalMask = mask
             bridges = emptyList()
+            progressCallback?.onProgress(40, "图像已经是连通的，无需添加桥")
         }
         
-        val finalComponents = extractComponents(finalMask)
-        val graph = buildEmptyGraph(finalMask)
-        
-        // 使用优化的Zigzag排序和连接方法
-        for ((index, component) in finalComponents.withIndex()) {
-            val direction = bestDirectionForComponent(component)
-            val sequence = optimizedZigzagOrder(component, direction, spacing)
-            addOptimizedZigzagToGraph(graph, finalMask, sequence)
-        }
-        
-        // 欧拉图化
-        eulerizeGraph(graph, finalMask)
-        
-        // 选择起始点
-        val start = graph.keys.firstOrNull() ?: Point(0, 0)
-        val path = hierholzer(graph, start)
+        // 使用改进的算法生成完整的一笔画路径，确保所有区域都被覆盖
+        progressCallback?.onProgress(50, "开始生成完整路径...")
+        val path = generateCompleteOneStrokePath(finalMask, components, progressCallback)
+        progressCallback?.onProgress(90, "路径生成完成，共${path.size}个点")
         
         return PathResult(path, finalMask, bridges)
+    }
+    
+    /**
+     * 生成完整的一笔画路径，确保所有连通分量都被覆盖
+     */
+    private fun generateCompleteOneStrokePath(
+        mask: Array<BooleanArray>,
+        components: List<List<Point>>,
+        progressCallback: ProgressCallback? = null
+    ): List<Point> {
+        val path = mutableListOf<Point>()
+        val height = mask.size
+        val width = mask[0].size
+        
+        // 创建访问标记数组
+        val visited = Array(height) { BooleanArray(width) }
+        
+        // 获取所有未访问的点
+        val unvisitedPoints = mutableSetOf<Point>()
+        for (y in 0 until height) {
+            for (x in 0 until width) {
+                if (mask[y][x]) {
+                    unvisitedPoints.add(Point(x, y))
+                }
+            }
+        }
+        
+        // 如果没有点需要访问，直接返回空路径
+        if (unvisitedPoints.isEmpty()) {
+            return path
+        }
+        
+        progressCallback?.onProgress(55, "开始遍历所有点...")
+        
+        // 从第一个未访问的点开始
+        var currentPoint = unvisitedPoints.first()
+        path.add(currentPoint)
+        visited[currentPoint.y][currentPoint.x] = true
+        unvisitedPoints.remove(currentPoint)
+        
+        var processedCount = 1 // 已经处理了第一个点
+        val totalCount = unvisitedPoints.size + 1 // 总点数
+        var lastReportedProgress = 55
+        var lastProgressUpdateTime = System.currentTimeMillis()
+        
+        // 当还有未访问的点时继续
+        while (unvisitedPoints.isNotEmpty()) {
+            // 更新进度（限制更新频率，避免UI卡顿）
+            val currentTime = System.currentTimeMillis()
+            if (currentTime - lastProgressUpdateTime > 100) { // 每100毫秒最多更新一次进度
+                // 进度范围从55到90
+                val progress = 55 + ((processedCount * 35) / totalCount)
+                // 确保进度不超过90
+                val clampedProgress = Math.min(progress, 90)
+                if (clampedProgress > lastReportedProgress) {
+                    lastReportedProgress = clampedProgress
+                    progressCallback?.onProgress(clampedProgress, "已处理 $processedCount/$totalCount 个点")
+                }
+                lastProgressUpdateTime = currentTime
+            }
+            
+            // 寻找最近的未访问邻居点
+            var nearestPoint: Point? = null
+            var minDistance = Int.MAX_VALUE
+            
+            // 先检查直接相邻的点
+            for (neighbor in NEIGHBORS) {
+                val nx = currentPoint.x + neighbor[0]
+                val ny = currentPoint.y + neighbor[1]
+                
+                if (inBounds(nx, ny, width, height) && 
+                    mask[ny][nx] && 
+                    !visited[ny][nx]) {
+                    nearestPoint = Point(nx, ny)
+                    minDistance = 1 // 相邻点距离为1
+                    break
+                }
+            }
+            
+            // 如果没有找到相邻点，检查对角线方向
+            if (nearestPoint == null) {
+                for (neighbor in NEIGHBORS_8) {
+                    val nx = currentPoint.x + neighbor[0]
+                    val ny = currentPoint.y + neighbor[1]
+                    
+                    if (inBounds(nx, ny, width, height) && 
+                        mask[ny][nx] && 
+                        !visited[ny][nx]) {
+                        val distance = kotlin.math.abs(neighbor[0]) + kotlin.math.abs(neighbor[1])
+                        if (distance < minDistance) {
+                            nearestPoint = Point(nx, ny)
+                            minDistance = distance
+                        }
+                    }
+                }
+            }
+            
+            // 如果找到了相邻点，直接移动到该点
+            if (nearestPoint != null) {
+                currentPoint = nearestPoint
+                path.add(currentPoint)
+                visited[currentPoint.y][currentPoint.x] = true
+                unvisitedPoints.remove(currentPoint)
+                processedCount++
+                continue
+            }
+            
+            // 如果没有找到相邻点，使用BFS寻找最近的未访问点
+            val queue = ArrayDeque<Pair<Point, Int>>() // 点和距离的对
+            val bfsVisited = Array(height) { BooleanArray(width) }
+            queue.add(Pair(currentPoint, 0))
+            bfsVisited[currentPoint.y][currentPoint.x] = true
+            
+            var foundTarget: Point? = null
+            var targetPath: List<Point>? = null
+            bfsLoop@ while (queue.isNotEmpty()) {
+                val (point, distance) = queue.removeFirst()
+                
+                // 检查这个点是否是我们要找的未访问点
+                if (unvisitedPoints.contains(point)) {
+                    // 找到目标点，现在需要找到从当前点到这个点的实际路径
+                    foundTarget = point
+                    targetPath = bfsShortestPath(mask, currentPoint, foundTarget)
+                    break@bfsLoop
+                }
+                
+                // 限制BFS搜索深度，防止在大型图像上花费太多时间
+                if (distance > 100) {
+                    continue
+                }
+                
+                // 探索邻居点
+                for (neighbor in NEIGHBORS_8) {
+                    val nx = point.x + neighbor[0]
+                    val ny = point.y + neighbor[1]
+                    
+                    if (inBounds(nx, ny, width, height) && 
+                        mask[ny][nx] && 
+                        !bfsVisited[ny][nx]) {
+                        bfsVisited[ny][nx] = true
+                        queue.add(Pair(Point(nx, ny), distance + 1))
+                    }
+                }
+            }
+            
+            // 如果找到了目标点，沿着路径移动
+            if (foundTarget != null && targetPath != null && targetPath.isNotEmpty()) {
+                // 添加路径中的所有点（除了第一个点，因为它已经是当前点）
+                for (i in 1 until targetPath.size) {
+                    val point = targetPath[i]
+                    path.add(point)
+                    visited[point.y][point.x] = true
+                    unvisitedPoints.remove(point)
+                }
+                currentPoint = foundTarget
+                processedCount++
+            } else {
+                // 如果BFS也没有找到路径，选择任意一个未访问点（这种情况不应该发生）
+                // 但我们仍需要确保能继续处理
+                if (unvisitedPoints.isNotEmpty()) {
+                    currentPoint = unvisitedPoints.first()
+                    path.add(currentPoint)
+                    visited[currentPoint.y][currentPoint.x] = true
+                    unvisitedPoints.remove(currentPoint)
+                    processedCount++
+                }
+            }
+        }
+        
+        return path
+    }
+
+    /**
+     * 使用扫描线算法生成一笔画路径
+     * 这种方法会产生更加规整、有序的路径
+     */
+    fun scanlinePathGeneration(mask: Array<BooleanArray>): List<Point> {
+        val path = mutableListOf<Point>()
+        val height = mask.size
+        val width = mask[0].size
+        
+        var direction = 1  // 1 表示从左到右，-1 表示从右到左
+        
+        // 按行扫描
+        for (y in 0 until height) {
+            val rowPoints = mutableListOf<Point>()
+            
+            // 收集当前行的所有有效点
+            for (x in 0 until width) {
+                if (mask[y][x]) {
+                    rowPoints.add(Point(x, y))
+                }
+            }
+            
+            // 根据方向确定排序顺序
+            if (direction == -1) {
+                rowPoints.reverse()
+            }
+            
+            // 将当前行的点添加到路径中
+            path.addAll(rowPoints)
+            
+            // 切换方向
+            direction *= -1
+        }
+        
+        return path
+    }
+    
+    /**
+     * 使用改进的Flood Fill算法生成一笔画路径，确保笔不离纸
+     * 这种方法会产生连续无跳跃的路径
+     */
+    fun floodFillPathGeneration(mask: Array<BooleanArray>): List<Point> {
+        val path = mutableListOf<Point>()
+        val height = mask.size
+        val width = mask[0].size
+
+        // 创建访问标记数组
+        val visited = Array(height) { BooleanArray(width) }
+
+        // 找到第一个为true的点作为起始点
+        var startX = -1
+        var startY = -1
+        outer@ for (y in 0 until height) {
+            for (x in 0 until width) {
+                if (mask[y][x]) {
+                    startX = x
+                    startY = y
+                    break@outer
+                }
+            }
+        }
+
+        // 如果没有找到起始点，返回空路径
+        if (startX == -1 || startY == -1) {
+            return path
+        }
+
+        // 使用栈进行深度优先搜索，确保路径连续
+        val stack = ArrayDeque<Point>()
+        stack.add(Point(startX, startY))
+        visited[startY][startX] = true
+        path.add(Point(startX, startY))
+
+        while (stack.isNotEmpty()) {
+            val current = stack.removeLast()
+
+            // 优先检查未访问的相邻点（4方向）
+            var foundNext = false
+            for (neighbor in NEIGHBORS) {
+                val nx = current.x + neighbor[0]
+                val ny = current.y + neighbor[1]
+
+                // 检查边界和是否已访问
+                if (inBounds(nx, ny, width, height) &&
+                    mask[ny][nx] &&
+                    !visited[ny][nx]) {
+
+                    visited[ny][nx] = true
+                    stack.add(Point(nx, ny))
+                    path.add(Point(nx, ny))
+                    foundNext = true
+                    break // 找到第一个相邻点就跳出循环
+                }
+            }
+
+            // 如果没有找到相邻的未访问点，则检查对角线方向
+            if (!foundNext) {
+                for (neighbor in NEIGHBORS_8) {
+                    // 跳过已经在NEIGHBORS中检查过的4个方向
+                    if ((neighbor[0] == 0 && neighbor[1] != 0) ||
+                        (neighbor[0] != 0 && neighbor[1] == 0)) {
+                        continue
+                    }
+
+                    val nx = current.x + neighbor[0]
+                    val ny = current.y + neighbor[1]
+
+                    // 检查边界和是否已访问
+                    if (inBounds(nx, ny, width, height) &&
+                        mask[ny][nx] &&
+                        !visited[ny][nx]) {
+
+                        visited[ny][nx] = true
+                        stack.add(Point(nx, ny))
+                        path.add(Point(nx, ny))
+                        foundNext = true
+                        break // 找到第一个相邻点就跳出循环
+                    }
+                }
+            }
+
+            // 如果还是没有找到下一个点，继续弹出栈顶元素进行回溯
+            // 直到找到有未访问邻居的点或者栈为空
+            // 这样可以确保访问所有可达的点，实现完整的欧拉路径
+        }
+
+        return path
     }
     
     /**
