@@ -18,6 +18,10 @@
         <action
             android:id="@+id/action_FeatureSelectFragment_to_OneStrokePathFragment"
             app:destination="@id/OneStrokePathFragment" />
+            
+        <action
+            android:id="@+id/action_FeatureSelectFragment_to_PresetPatternsFragment"
+            app:destination="@id/PresetPatternsFragment" />
     </fragment>
 
     <fragment
@@ -47,4 +51,10 @@
         android:name="cn.bl1000.weathertable.OneStrokePathFragment"
         android:label="一笔画路径"
         tools:layout="@layout/fragment_one_stroke_path" />
+        
+    <fragment
+        android:id="@+id/PresetPatternsFragment"
+        android:name="cn.bl1000.weathertable.PresetPatternsFragment"
+        android:label="预设图案"
+        tools:layout="@layout/fragment_preset_patterns" />
 </navigation>

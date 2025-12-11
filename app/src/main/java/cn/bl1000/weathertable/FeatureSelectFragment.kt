@@ -38,6 +38,11 @@ class FeatureSelectFragment : Fragment() {
             // 跳转到一笔画功能页面
             findNavController().navigate(R.id.action_FeatureSelectFragment_to_OneStrokePathFragment)
         }
+        
+        binding.btnPresetPatterns.setOnClickListener {
+            // 跳转到预设图案页面
+            findNavController().navigate(R.id.action_FeatureSelectFragment_to_PresetPatternsFragment)
+        }
     }
 
     override fun onDestroyView() {
