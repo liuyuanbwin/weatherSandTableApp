@@ -30,12 +30,12 @@ class FeatureSelectFragment : Fragment() {
 
         // 设置按钮点击事件
         binding.btnImageProcessing.setOnClickListener {
-            // 跳转到原FirstFragment（图片处理功能）
-            findNavController().navigate(R.id.action_FeatureSelectFragment_to_FirstFragment)
+            // 跳转到图片处理功能页面
+            findNavController().navigate(R.id.action_FeatureSelectFragment_to_ImageProcessingFragment)
         }
 
         binding.btnOneStrokePath.setOnClickListener {
-            // 跳转到一笔画功能页面（暂时跳转到FirstFragment，后续可以创建专门的一笔画页面）
+            // 跳转到一笔画功能页面
             findNavController().navigate(R.id.action_FeatureSelectFragment_to_OneStrokePathFragment)
         }
     }

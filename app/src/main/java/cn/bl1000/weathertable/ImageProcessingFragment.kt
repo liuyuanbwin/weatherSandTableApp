@@ -22,7 +22,7 @@ import androidx.core.content.ContextCompat
 import androidx.core.content.FileProvider
 import androidx.fragment.app.Fragment
 import cn.bl1000.weathertable.ble.BLEManager
-import cn.bl1000.weathertable.databinding.FragmentFirstBinding
+import cn.bl1000.weathertable.databinding.FragmentImageProcessingBinding
 import java.io.File
 import java.io.FileOutputStream
 import java.io.IOException
@@ -38,11 +38,12 @@ import cn.bl1000.weathertable.OneStrokePathGenerator
 
 
 /**
- * A simple [Fragment] subclass as the default destination in the navigation.
+ * 图片处理功能Fragment
+ * 提供图片选择、处理和BLE发送功能
  */
-class FirstFragment : Fragment() {
+class ImageProcessingFragment : Fragment() {
 
-    private var _binding: FragmentFirstBinding? = null
+    private var _binding: FragmentImageProcessingBinding? = null
 
     // This property is only valid between onCreateView and
     // onDestroyView.
@@ -59,7 +60,7 @@ class FirstFragment : Fragment() {
     private lateinit var pathGenerator: OneStrokePathGenerator
 
     companion object {
-        private const val TAG = "FirstFragment"
+        private const val TAG = "ImageProcessingFragment"
         private const val COMMAND_START = 0x01.toByte()
         private const val COMMAND_DATA = 0x02.toByte()
         private const val COMMAND_END = 0x03.toByte()
@@ -71,7 +72,7 @@ class FirstFragment : Fragment() {
         savedInstanceState: Bundle?
     ): View {
 
-        _binding = FragmentFirstBinding.inflate(inflater, container, false)
+        _binding = FragmentImageProcessingBinding.inflate(inflater, container, false)
         return binding.root
 
     }

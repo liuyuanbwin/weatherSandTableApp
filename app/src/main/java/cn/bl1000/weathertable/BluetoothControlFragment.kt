@@ -6,14 +6,15 @@ import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
 import androidx.navigation.fragment.findNavController
-import cn.bl1000.weathertable.databinding.FragmentSecondBinding
+import cn.bl1000.weathertable.databinding.FragmentBluetoothControlBinding
 
 /**
- * A simple [Fragment] subclass as the second destination in the navigation.
+ * 蓝牙控制Fragment
+ * 提供蓝牙设备控制功能
  */
-class SecondFragment : Fragment() {
+class BluetoothControlFragment : Fragment() {
 
-    private var _binding: FragmentSecondBinding? = null
+    private var _binding: FragmentBluetoothControlBinding? = null
 
     // This property is only valid between onCreateView and
     // onDestroyView.
@@ -24,7 +25,7 @@ class SecondFragment : Fragment() {
         savedInstanceState: Bundle?
     ): View {
 
-        _binding = FragmentSecondBinding.inflate(inflater, container, false)
+        _binding = FragmentBluetoothControlBinding.inflate(inflater, container, false)
         return binding.root
 
     }
@@ -33,7 +34,7 @@ class SecondFragment : Fragment() {
         super.onViewCreated(view, savedInstanceState)
 
         binding.buttonSecond.setOnClickListener {
-            findNavController().navigate(R.id.action_SecondFragment_to_FirstFragment)
+            findNavController().navigate(R.id.action_BluetoothControlFragment_to_ImageProcessingFragment)
         }
     }
 

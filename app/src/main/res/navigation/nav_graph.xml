@@ -12,8 +12,8 @@
         tools:layout="@layout/fragment_feature_select">
 
         <action
-            android:id="@+id/action_FeatureSelectFragment_to_FirstFragment"
-            app:destination="@id/FirstFragment" />
+            android:id="@+id/action_FeatureSelectFragment_to_ImageProcessingFragment"
+            app:destination="@id/ImageProcessingFragment" />
 
         <action
             android:id="@+id/action_FeatureSelectFragment_to_OneStrokePathFragment"
@@ -21,25 +21,25 @@
     </fragment>
 
     <fragment
-        android:id="@+id/FirstFragment"
-        android:name="cn.bl1000.weathertable.FirstFragment"
+        android:id="@+id/ImageProcessingFragment"
+        android:name="cn.bl1000.weathertable.ImageProcessingFragment"
         android:label="@string/first_fragment_label"
-        tools:layout="@layout/fragment_first">
+        tools:layout="@layout/fragment_image_processing">
 
         <action
-            android:id="@+id/action_FirstFragment_to_SecondFragment"
-            app:destination="@id/SecondFragment" />
+            android:id="@+id/action_ImageProcessingFragment_to_BluetoothControlFragment"
+            app:destination="@id/BluetoothControlFragment" />
     </fragment>
     
     <fragment
-        android:id="@+id/SecondFragment"
-        android:name="cn.bl1000.weathertable.SecondFragment"
+        android:id="@+id/BluetoothControlFragment"
+        android:name="cn.bl1000.weathertable.BluetoothControlFragment"
         android:label="@string/second_fragment_label"
-        tools:layout="@layout/fragment_second">
+        tools:layout="@layout/fragment_bluetooth_control">
 
         <action
-            android:id="@+id/action_SecondFragment_to_FirstFragment"
-            app:destination="@id/FirstFragment" />
+            android:id="@+id/action_BluetoothControlFragment_to_ImageProcessingFragment"
+            app:destination="@id/ImageProcessingFragment" />
     </fragment>
     
     <fragment
