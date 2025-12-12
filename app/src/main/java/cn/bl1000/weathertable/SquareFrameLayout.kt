@@ -1,0 +1,19 @@
+package cn.bl1000.weathertable
+
+import android.content.Context
+import android.util.AttributeSet
+import android.widget.FrameLayout
+
+class SquareFrameLayout : FrameLayout {
+    constructor(context: Context) : super(context)
+    constructor(context: Context, attrs: AttributeSet?) : super(context, attrs)
+    constructor(context: Context, attrs: AttributeSet?, defStyleAttr: Int) : super(context, attrs, defStyleAttr)
+
+    override fun onMeasure(widthMeasureSpec: Int, heightMeasureSpec: Int) {
+        super.onMeasure(widthMeasureSpec, heightMeasureSpec)
+        
+        val width = measuredWidth
+        // 确保高度等于宽度，形成正方形
+        setMeasuredDimension(width, width)
+    }
+}

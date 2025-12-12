@@ -25,6 +25,7 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import java.io.IOException
 
 /**
  * 一口画功能Fragment
@@ -86,6 +87,39 @@ class OneStrokePathFragment : Fragment() {
         
         binding.btnGeneratePath.setOnClickListener {
             generateOneStrokePath()
+        }
+        
+        // 检查是否有从预设图片传递过来的参数
+        val presetImageName = arguments?.getString("preset_image_name")
+        if (presetImageName != null) {
+            loadPresetImage(presetImageName)
+        }
+    }
+    
+    /**
+     * 加载预设图片
+     */
+    private fun loadPresetImage(imageName: String) {
+        try {
+            val assetManager = requireContext().assets
+            val inputStream = assetManager.open("presets/$imageName")
+            selectedBitmap = BitmapFactory.decodeStream(inputStream)?.let { 
+                Bitmap.createScaledBitmap(it, PROCESS_SIZE, PROCESS_SIZE, true) 
+            }
+            inputStream.close()
+            
+            // 显示选中的图片
+            binding.ivSelectedImage.setImageBitmap(selectedBitmap)
+            
+            // 显示处理按钮
+            binding.buttonsLayout.visibility = View.VISIBLE
+            
+            // 清除之前的结果
+            clearResults()
+            
+            Toast.makeText(context, "预设图片加载成功", Toast.LENGTH_SHORT).show()
+        } catch (e: IOException) {
+            Toast.makeText(context, "预设图片加载失败: ${e.message}", Toast.LENGTH_SHORT).show()
         }
     }
     

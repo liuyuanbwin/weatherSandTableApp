@@ -62,6 +62,10 @@
             android:id="@+id/action_PresetPatternsFragment_to_PatternPreviewFragment"
             app:destination="@id/PatternPreviewFragment" />
             
+        <action
+            android:id="@+id/action_PresetPatternsFragment_to_OneStrokePathFragment"
+            app:destination="@id/OneStrokePathFragment" />
+            
     </fragment>
     
     <fragment
