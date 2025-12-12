@@ -56,5 +56,25 @@
         android:id="@+id/PresetPatternsFragment"
         android:name="cn.bl1000.weathertable.PresetPatternsFragment"
         android:label="预设图案"
-        tools:layout="@layout/fragment_preset_patterns" />
+        tools:layout="@layout/fragment_preset_patterns">
+        
+        <action
+            android:id="@+id/action_PresetPatternsFragment_to_PatternPreviewFragment"
+            app:destination="@id/PatternPreviewFragment" />
+            
+    </fragment>
+    
+    <fragment
+        android:id="@+id/PatternPreviewFragment"
+        android:name="cn.bl1000.weathertable.PatternPreviewFragment"
+        android:label="图案预览"
+        tools:layout="@layout/fragment_pattern_preview" >
+        
+        <argument
+            android:name="pattern_type"
+            app:argType="integer"
+            android:defaultValue="0" />
+            
+    </fragment>
+        
 </navigation>

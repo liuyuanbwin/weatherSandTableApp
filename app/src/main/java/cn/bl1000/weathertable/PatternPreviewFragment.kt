@@ -1,40 +1,21 @@
 package cn.bl1000.weathertable
 
-import android.content.Context
 import android.graphics.*
 import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
+import android.view.LayoutInflater
 import android.view.View
-import android.view.Window
-import android.view.WindowManager
-import androidx.appcompat.app.AppCompatActivity
+import android.view.ViewGroup
+import androidx.fragment.app.Fragment
+import cn.bl1000.weathertable.databinding.FragmentPatternPreviewBinding
 import kotlin.math.*
 
-class PatternDetailActivity : AppCompatActivity() {
-    override fun onCreate(savedInstanceState: Bundle?) {
-        super.onCreate(savedInstanceState)
-        
-        // 全屏显示
-        window.setFlags(
-            WindowManager.LayoutParams.FLAG_FULLSCREEN,
-            WindowManager.LayoutParams.FLAG_FULLSCREEN
-        )
-        supportActionBar?.hide()
-        
-        val patternType = intent.getIntExtra("pattern_type", 0)
-        val patternView = PatternView(this, patternType)
-        setContentView(patternView)
-    }
-}
-
-class PatternView(context: Context, private val patternType: Int) : View(context) {
-    private val paint = Paint().apply {
-        color = Color.BLACK
-        strokeWidth = 4f
-        style = Paint.Style.STROKE
-        isAntiAlias = true
-    }
+class PatternPreviewFragment : Fragment() {
+    private var _binding: FragmentPatternPreviewBinding? = null
+    private val binding get() = _binding!!
+    
+    private var patternType: Int = 0
     
     // 用于动画绘制的变量
     private val handler = Handler(Looper.getMainLooper())
@@ -48,16 +29,45 @@ class PatternView(context: Context, private val patternType: Int) : View(context
     
     data class PointF(val x: Float, val y: Float)
     
-    override fun onDraw(canvas: Canvas) {
-        super.onDraw(canvas)
-        canvas.drawColor(Color.WHITE)
+    companion object {
+        const val TAG = "PatternPreviewFragment"
         
-        // 初始化bitmap和canvas（仅一次）
-        if (this.bitmap == null) {
-            this.bitmap = Bitmap.createBitmap(boardSize, boardSize, Bitmap.Config.ARGB_8888)
-            this.canvas = Canvas(this.bitmap!!)
+        fun newInstance(patternType: Int): PatternPreviewFragment {
+            val fragment = PatternPreviewFragment()
+            val args = Bundle()
+            args.putInt("pattern_type", patternType)
+            fragment.arguments = args
+            return fragment
+        }
+    }
+    
+    override fun onCreate(savedInstanceState: Bundle?) {
+        super.onCreate(savedInstanceState)
+        patternType = arguments?.getInt("pattern_type") ?: 0
+    }
+    
+    override fun onCreateView(inflater: LayoutInflater, container: ViewGroup?, savedInstanceState: Bundle?): View {
+        _binding = FragmentPatternPreviewBinding.inflate(inflater, container, false)
+        return binding.root
+    }
+    
+    override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
+        super.onViewCreated(view, savedInstanceState)
+        
+        // 初始化bitmap和canvas
+        bitmap = Bitmap.createBitmap(boardSize, boardSize, Bitmap.Config.ARGB_8888)
+        canvas = Canvas(bitmap!!)
+        
+        // 设置关闭按钮点击事件
+        binding.btnClose.setOnClickListener {
+            parentFragmentManager.popBackStack()
         }
         
+        // 开始绘制图案
+        startDrawingPattern()
+    }
+    
+    private fun startDrawingPattern() {
         when (patternType) {
             0 -> drawAnimatedSpiralPattern()
             1 -> drawAnimatedRasterScanPattern()
@@ -65,21 +75,6 @@ class PatternView(context: Context, private val patternType: Int) : View(context
             3 -> drawAnimatedKochSnowflake()
             4 -> drawAnimatedFractalTree()
             else -> drawAnimatedSpiralPattern()
-        }
-        
-        // 绘制bitmap到主canvas
-        if (bitmap != null) {
-            // 居中显示在屏幕中
-            val scale = minOf(width.toFloat() / boardSize, height.toFloat() / boardSize)
-            val scaledBitmap = Bitmap.createScaledBitmap(bitmap!!, 
-                (boardSize * scale).toInt(), 
-                (boardSize * scale).toInt(), 
-                false)
-            
-            val left = (width - scaledBitmap.width) / 2f
-            val top = (height - scaledBitmap.height) / 2f
-            
-            canvas.drawBitmap(scaledBitmap, left, top, Paint())
         }
     }
     
@@ -357,8 +352,8 @@ class PatternView(context: Context, private val patternType: Int) : View(context
         // 在bitmap上绘制这一段路径
         canvas?.drawPath(segmentPath, drawPaint)
         
-        // 强制重绘
-        invalidate()
+        // 更新ImageView
+        binding.imageView.setImageBitmap(bitmap)
         
         currentIndex++
         
@@ -377,5 +372,13 @@ class PatternView(context: Context, private val patternType: Int) : View(context
         // 增加倍数使颜色变化更明显，每100个点完成一次完整的彩虹循环
         val hue = (index * 360.0f / 100.0f) % 360.0f
         return Color.HSVToColor(floatArrayOf(hue, 1.0f, 1.0f))
+    }
+    
+    override fun onDestroyView() {
+        super.onDestroyView()
+        _binding = null
+        // 清理资源
+        handler.removeCallbacksAndMessages(null)
+        bitmap?.recycle()
     }
 }

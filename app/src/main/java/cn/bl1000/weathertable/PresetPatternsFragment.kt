@@ -4,8 +4,8 @@ import android.os.Bundle
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
-import android.content.Intent
 import androidx.fragment.app.Fragment
+import androidx.navigation.fragment.findNavController
 import androidx.recyclerview.widget.GridLayoutManager
 import androidx.recyclerview.widget.RecyclerView
 import android.widget.TextView
@@ -28,14 +28,19 @@ class PresetPatternsFragment : Fragment() {
         
         val patterns = listOf(
             "螺旋图案",
-            "往复线扫描"
+            "往复线扫描",
+            "谢尔宾斯基三角形",
+            "科赫雪花",
+            "分形树"
         )
         
         val adapter = PresetPatternsAdapter(patterns) { position ->
             // 点击某个图案时的操作
-            val intent = Intent(activity, PatternDetailActivity::class.java)
-            intent.putExtra("pattern_type", position)
-            startActivity(intent)
+            val action = R.id.action_PresetPatternsFragment_to_PatternPreviewFragment
+            val bundle = Bundle().apply {
+                putInt("pattern_type", position)
+            }
+            findNavController().navigate(action, bundle)
         }
         
         binding.recyclerView.layoutManager = GridLayoutManager(context, 2)
