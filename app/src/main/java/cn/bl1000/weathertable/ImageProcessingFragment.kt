@@ -92,12 +92,16 @@ class ImageProcessingFragment : Fragment() {
             showImagePickerOptions()
         }
 
-        binding.selectImageButton.setOnClickListener {
-            showImagePickerOptions()
-        }
+//        binding.selectImageButton.setOnClickListener {
+//            showImagePickerOptions()
+//        }
 
         binding.processImageButton.setOnClickListener {
             processSelectedImage()
+        }
+        
+        binding.processBwButton.setOnClickListener {
+            processBlackWhiteImage()
         }
         
         binding.rotateButton.setOnClickListener {
@@ -199,6 +203,7 @@ class ImageProcessingFragment : Fragment() {
                 imageView.setImageBitmap(bitmap)
                 binding.editButtonsLayout.visibility = View.VISIBLE
                 binding.processImageButton.visibility = View.VISIBLE
+                binding.processBwButton.visibility = View.VISIBLE
                 binding.generatePathButton.visibility = View.VISIBLE
                 currentRotation = 0f
             }
@@ -214,6 +219,7 @@ class ImageProcessingFragment : Fragment() {
             imageView.setImageBitmap(bitmap)
             binding.editButtonsLayout.visibility = View.VISIBLE
             binding.processImageButton.visibility = View.VISIBLE
+            binding.processBwButton.visibility = View.VISIBLE
             binding.generatePathButton.visibility = View.VISIBLE
             
             // 如果之前处理过图片，隐藏处理后的图片
@@ -318,6 +324,7 @@ class ImageProcessingFragment : Fragment() {
             imageView.visibility = View.GONE
             binding.editButtonsLayout.visibility = View.GONE
             binding.processImageButton.visibility = View.GONE
+            binding.processBwButton.visibility = View.GONE
             binding.generatePathButton.visibility = View.GONE
             
             // 严格按照128*128分辨率处理
@@ -362,6 +369,104 @@ class ImageProcessingFragment : Fragment() {
             // 显示发送按钮
             binding.sendBleButton.visibility = View.VISIBLE
         }
+    }
+    
+    /**
+     * 处理黑白二值化图片
+     */
+    private fun processBlackWhiteImage() {
+        selectedBitmap?.let { originalBitmap ->
+            // 隐藏原始图片和处理按钮
+            imageView.visibility = View.GONE
+            binding.editButtonsLayout.visibility = View.GONE
+            binding.processImageButton.visibility = View.GONE
+            binding.processBwButton.visibility = View.GONE
+            binding.generatePathButton.visibility = View.GONE
+            
+            // 先缩放到128*128
+            val scaledBitmap = Bitmap.createScaledBitmap(originalBitmap, 128, 128, true)
+            
+            // 创建黑白二值化Bitmap
+            val bwBitmap = convertToBlackAndWhite(scaledBitmap)
+            
+            // 创建用于显示的放大版本
+            val displayWidth = 128 * 8  // 1024 pixels wide
+            val displayHeight = 128 * 8 // 1024 pixels high
+            val displayBitmap = Bitmap.createBitmap(displayWidth, displayHeight, Bitmap.Config.ARGB_8888)
+            val canvas = Canvas(displayBitmap)
+            val paint = Paint()
+            paint.isAntiAlias = false // 关闭抗锯齿以获得清晰的黑白效果
+            
+            // 计算每个点在显示区域中的大小
+            val cellWidth = displayWidth.toFloat() / 128
+            val cellHeight = displayHeight.toFloat() / 128
+            
+            // 绘制128*128的黑白方块
+            for (y in 0 until 128) {
+                for (x in 0 until 128) {
+                    // 获取该位置的颜色
+                    val pixel = bwBitmap.getPixel(x, y)
+                    paint.color = pixel
+                    
+                    // 绘制矩形
+                    val left = x * cellWidth
+                    val top = y * cellHeight
+                    val right = left + cellWidth
+                    val bottom = top + cellHeight
+                    canvas.drawRect(left, top, right, bottom, paint)
+                }
+            }
+            
+            // 保存处理后的图片用于发送
+            processedBitmap = bwBitmap
+            
+            // 显示处理后的图片
+            processedImageView.setImageBitmap(displayBitmap)
+            processedImageView.visibility = View.VISIBLE
+            
+            // 显示发送按钮
+            binding.sendBleButton.visibility = View.VISIBLE
+        }
+    }
+    
+    /**
+     * 将彩色图片转换为黑白二值化图片
+     */
+    private fun convertToBlackAndWhite(bitmap: Bitmap): Bitmap {
+        val width = bitmap.width
+        val height = bitmap.height
+        val bwBitmap = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888)
+        
+        // 计算阈值，使用简单的平均值法
+        var totalBrightness = 0
+        for (y in 0 until height) {
+            for (x in 0 until width) {
+                val pixel = bitmap.getPixel(x, y)
+                val r = (pixel shr 16) and 0xFF
+                val g = (pixel shr 8) and 0xFF
+                val b = pixel and 0xFF
+                val brightness = (r + g + b) / 3
+                totalBrightness += brightness
+            }
+        }
+        val threshold = totalBrightness / (width * height)
+        
+        // 应用阈值进行二值化，只产生纯黑或纯白的像素
+        for (y in 0 until height) {
+            for (x in 0 until width) {
+                val pixel = bitmap.getPixel(x, y)
+                val r = (pixel shr 16) and 0xFF
+                val g = (pixel shr 8) and 0xFF
+                val b = pixel and 0xFF
+                val brightness = (r + g + b) / 3
+                
+                // 亮度小于等于127为黑色，否则为白色
+                val color = if (brightness <= 127) 0xFF000000.toInt() else 0xFFFFFFFF.toInt()
+                bwBitmap.setPixel(x, y, color)
+            }
+        }
+        
+        return bwBitmap
     }
     
     /**
@@ -440,38 +545,52 @@ class ImageProcessingFragment : Fragment() {
                 Thread.sleep(50) // 减少等待时间
                 
                 // 3. 发送图像数据
-                var totalSent = 0
                 val totalPixels = bitmap.width * bitmap.height
                 val pixels = IntArray(totalPixels)
                 bitmap.getPixels(pixels, 0, bitmap.width, 0, 0, bitmap.width, bitmap.height)
                 
-                // 根据MTU计算每个数据包可以发送的像素数
+                // 根据MTU计算每个数据包可以发送的字节数
                 // MTU - 1字节命令 - 3字节ATT开销
-                val maxPixelsPerPacket = (currentMtu - 4) / 3
-                Log.d(TAG, "每个数据包最多可发送像素数: $maxPixelsPerPacket")
+                val maxBytesPerPacket = (currentMtu - 4)
+                Log.d(TAG, "每个数据包最多可发送字节数: $maxBytesPerPacket")
                 
-                // 分批发送数据
+                // 分批发送数据，每字节包含8个像素点的信息
                 var i = 0
                 while (i < totalPixels) {
-                    // 计算本次发送的数据量
+                    // 计算本次发送的数据量（以像素为单位）
                     val remainingPixels = totalPixels - i
-                    val pixelsToSend = minOf(remainingPixels, maxPixelsPerPacket)
+                    // 每个字节包含8个像素，计算需要多少字节
+                    val bytesNeeded = (remainingPixels + 7) / 8  // 向上取整
+                    val bytesToSend = minOf(bytesNeeded, maxBytesPerPacket)
+                    // 实际发送的像素数量
+                    val pixelsToSend = minOf(remainingPixels, bytesToSend * 8)
                     
                     // 构造数据包
-                    val packetSize = 1 + pixelsToSend * 3 // 1字节命令 + RGB数据
+                    val packetSize = 1 + bytesToSend // 1字节命令 + 像素数据
                     val packet = ByteArray(packetSize)
                     packet[0] = COMMAND_DATA
                     
-                    // 填充RGB数据
-                    for (j in 0 until pixelsToSend) {
-                        val pixel = pixels[i + j]
-                        val r = (pixel shr 16) and 0xFF
-                        val g = (pixel shr 8) and 0xFF
-                        val b = pixel and 0xFF
-                        
-                        packet[1 + j * 3] = r.toByte()
-                        packet[1 + j * 3 + 1] = g.toByte()
-                        packet[1 + j * 3 + 2] = b.toByte()
+                    // 填充像素数据，每8个像素打包成一个字节
+                    for (j in 0 until bytesToSend) {
+                        var byteValue: Byte = 0
+                        for (bit in 0 until 8) {
+                            val pixelIndex = i + j * 8 + bit
+                            // 确保不超出边界
+                            if (pixelIndex < totalPixels) {
+                                val pixel = pixels[pixelIndex]
+                                val r = (pixel shr 16) and 0xFF
+                                val g = (pixel shr 8) and 0xFF
+                                val b = pixel and 0xFF
+                                val brightness = (r + g + b) / 3
+                                
+                                // 亮度小于等于127为黑色(1)，否则为白色(0)
+                                if (brightness <= 127) {
+                                    byteValue = ((byteValue.toInt()) or (1 shl (7 - bit))).toByte()
+                                }
+                                // 否则保持为0，不需要额外操作
+                            }
+                        }
+                        packet[1 + j] = byteValue
                     }
                     
                     // 发送数据包
@@ -487,7 +606,7 @@ class ImageProcessingFragment : Fragment() {
                     }
                     
                     // 更新进度
-                    totalSent += pixelsToSend
+                    val totalSent = i + pixelsToSend
                     val progress = (totalSent * 100) / totalPixels
                     requireActivity().runOnUiThread {
                         binding.sendProgress.progress = progress
@@ -496,7 +615,7 @@ class ImageProcessingFragment : Fragment() {
                     i += pixelsToSend
                     
                     // 控制发送速度，避免缓冲区溢出
-                    if (i % 10 == 0) { // 每10个包等待一次
+                    if (i % (maxBytesPerPacket * 8) == 0) { // 每发送一批数据等待一次
                         Thread.sleep(SEND_DELAY_MS)
                     }
                 }

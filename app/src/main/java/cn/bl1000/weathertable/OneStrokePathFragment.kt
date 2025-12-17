@@ -455,6 +455,7 @@ class OneStrokePathFragment : Fragment() {
                     Triple(components, connectedMaskResult, bridges)
                 }
                 
+                // 存储连接后的mask，供后续路径生成使用
                 connectedMask = connectedMaskResult
                 
                 // 显示连接后的结果（放大显示以便更好地观察）

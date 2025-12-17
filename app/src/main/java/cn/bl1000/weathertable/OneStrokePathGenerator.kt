@@ -709,10 +709,10 @@ class OneStrokePathGenerator {
         val path = mutableListOf<Point>()
         val height = mask.size
         val width = mask[0].size
-        
+
         // 创建访问标记数组
         val visited = Array(height) { BooleanArray(width) }
-        
+
         // 获取所有未访问的点
         val unvisitedPoints = mutableSetOf<Point>()
         for (y in 0 until height) {
@@ -722,25 +722,58 @@ class OneStrokePathGenerator {
                 }
             }
         }
-        
+
         // 如果没有点需要访问，直接返回空路径
         if (unvisitedPoints.isEmpty()) {
             return path
         }
-        
+
         progressCallback?.onProgress(55, "开始遍历所有点...")
-        
-        // 从第一个未访问的点开始
-        var currentPoint = unvisitedPoints.first()
+
+        // 找到左上角和右下角的有效点
+        var startPoint: Point? = null
+        var endPoint: Point? = null
+
+        // 从左上角开始寻找起始点
+        outer@ for (y in 0 until height) {
+            for (x in 0 until width) {
+                if (mask[y][x]) {
+                    startPoint = Point(x, y)
+                    break@outer
+                }
+            }
+        }
+
+        // 从右下角开始寻找结束点
+        outer@ for (y in height - 1 downTo 0) {
+            for (x in width - 1 downTo 0) {
+                if (mask[y][x]) {
+                    endPoint = Point(x, y)
+                    break@outer
+                }
+            }
+        }
+
+        // 如果没有找到合适的起始或结束点，使用默认逻辑
+        if (startPoint == null) {
+            startPoint = unvisitedPoints.first()
+        }
+
+        if (endPoint == null) {
+            endPoint = unvisitedPoints.last()
+        }
+
+        // 从起始点开始
+        var currentPoint = startPoint!!
         path.add(currentPoint)
         visited[currentPoint.y][currentPoint.x] = true
         unvisitedPoints.remove(currentPoint)
-        
+
         var processedCount = 1 // 已经处理了第一个点
         val totalCount = unvisitedPoints.size + 1 // 总点数
         var lastReportedProgress = 55
         var lastProgressUpdateTime = System.currentTimeMillis()
-        
+
         // 当还有未访问的点时继续
         while (unvisitedPoints.isNotEmpty()) {
             // 更新进度（限制更新频率，避免UI卡顿）
@@ -756,33 +789,33 @@ class OneStrokePathGenerator {
                 }
                 lastProgressUpdateTime = currentTime
             }
-            
+
             // 寻找最近的未访问邻居点
             var nearestPoint: Point? = null
             var minDistance = Int.MAX_VALUE
-            
+
             // 先检查直接相邻的点
             for (neighbor in NEIGHBORS) {
                 val nx = currentPoint.x + neighbor[0]
                 val ny = currentPoint.y + neighbor[1]
-                
-                if (inBounds(nx, ny, width, height) && 
-                    mask[ny][nx] && 
+
+                if (inBounds(nx, ny, width, height) &&
+                    mask[ny][nx] &&
                     !visited[ny][nx]) {
                     nearestPoint = Point(nx, ny)
                     minDistance = 1 // 相邻点距离为1
                     break
                 }
             }
-            
+
             // 如果没有找到相邻点，检查对角线方向
             if (nearestPoint == null) {
                 for (neighbor in NEIGHBORS_8) {
                     val nx = currentPoint.x + neighbor[0]
                     val ny = currentPoint.y + neighbor[1]
-                    
-                    if (inBounds(nx, ny, width, height) && 
-                        mask[ny][nx] && 
+
+                    if (inBounds(nx, ny, width, height) &&
+                        mask[ny][nx] &&
                         !visited[ny][nx]) {
                         val distance = kotlin.math.abs(neighbor[0]) + kotlin.math.abs(neighbor[1])
                         if (distance < minDistance) {
@@ -792,7 +825,7 @@ class OneStrokePathGenerator {
                     }
                 }
             }
-            
+
             // 如果找到了相邻点，直接移动到该点
             if (nearestPoint != null) {
                 currentPoint = nearestPoint
@@ -802,18 +835,18 @@ class OneStrokePathGenerator {
                 processedCount++
                 continue
             }
-            
+
             // 如果没有找到相邻点，使用BFS寻找最近的未访问点
             val queue = ArrayDeque<Pair<Point, Int>>() // 点和距离的对
             val bfsVisited = Array(height) { BooleanArray(width) }
             queue.add(Pair(currentPoint, 0))
             bfsVisited[currentPoint.y][currentPoint.x] = true
-            
+
             var foundTarget: Point? = null
             var targetPath: List<Point>? = null
             bfsLoop@ while (queue.isNotEmpty()) {
                 val (point, distance) = queue.removeFirst()
-                
+
                 // 检查这个点是否是我们要找的未访问点
                 if (unvisitedPoints.contains(point)) {
                     // 找到目标点，现在需要找到从当前点到这个点的实际路径
@@ -821,26 +854,26 @@ class OneStrokePathGenerator {
                     targetPath = bfsShortestPath(mask, currentPoint, foundTarget)
                     break@bfsLoop
                 }
-                
+
                 // 限制BFS搜索深度，防止在大型图像上花费太多时间
                 if (distance > 100) {
                     continue
                 }
-                
+
                 // 探索邻居点
                 for (neighbor in NEIGHBORS_8) {
                     val nx = point.x + neighbor[0]
                     val ny = point.y + neighbor[1]
-                    
-                    if (inBounds(nx, ny, width, height) && 
-                        mask[ny][nx] && 
+
+                    if (inBounds(nx, ny, width, height) &&
+                        mask[ny][nx] &&
                         !bfsVisited[ny][nx]) {
                         bfsVisited[ny][nx] = true
                         queue.add(Pair(Point(nx, ny), distance + 1))
                     }
                 }
             }
-            
+
             // 如果找到了目标点，沿着路径移动
             if (foundTarget != null && targetPath != null && targetPath.isNotEmpty()) {
                 // 添加路径中的所有点（除了第一个点，因为它已经是当前点）
@@ -864,7 +897,21 @@ class OneStrokePathGenerator {
                 }
             }
         }
-        
+
+        // 确保路径结束在指定的结束点
+        if (currentPoint != endPoint && endPoint != null) {
+            val finalPath = bfsShortestPath(mask, currentPoint, endPoint!!)
+            if (finalPath != null && finalPath.isNotEmpty()) {
+                // 添加路径中的所有点（除了第一个点，因为它已经是当前点）
+                for (i in 1 until finalPath.size) {
+                    val point = finalPath[i]
+                    path.add(point)
+                    visited[point.y][point.x] = true
+                    unvisitedPoints.remove(point)
+                }
+            }
+        }
+
         return path
     }
 

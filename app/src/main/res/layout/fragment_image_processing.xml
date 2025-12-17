@@ -67,10 +67,22 @@
             android:layout_marginTop="16dp"
             android:text="处理图片"
             android:visibility="gone"
-            app:layout_constraintBottom_toTopOf="@id/processed_image_view"
+            app:layout_constraintBottom_toTopOf="@id/process_bw_button"
             app:layout_constraintEnd_toEndOf="parent"
             app:layout_constraintStart_toStartOf="parent"
             app:layout_constraintTop_toBottomOf="@id/edit_buttons_layout" />
+            
+        <Button
+            android:id="@+id/process_bw_button"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="16dp"
+            android:text="黑白二值化处理"
+            android:visibility="gone"
+            app:layout_constraintBottom_toTopOf="@id/generate_path_button"
+            app:layout_constraintEnd_toEndOf="parent"
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintTop_toBottomOf="@id/process_image_button" />
             
         <Button
             android:id="@+id/generate_path_button"
@@ -82,7 +94,7 @@
             app:layout_constraintBottom_toTopOf="@id/processed_image_view"
             app:layout_constraintEnd_toEndOf="parent"
             app:layout_constraintStart_toStartOf="parent"
-            app:layout_constraintTop_toBottomOf="@id/process_image_button" />
+            app:layout_constraintTop_toBottomOf="@id/process_bw_button" />
 
         <ImageView
             android:id="@+id/processed_image_view"
@@ -94,7 +106,7 @@
             app:layout_constraintBottom_toTopOf="@id/send_ble_button"
             app:layout_constraintEnd_toEndOf="parent"
             app:layout_constraintStart_toStartOf="parent"
-            app:layout_constraintTop_toBottomOf="@id/process_image_button" />
+            app:layout_constraintTop_toBottomOf="@id/generate_path_button" />
             
         <Button
             android:id="@+id/send_ble_button"
