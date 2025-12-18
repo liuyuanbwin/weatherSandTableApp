@@ -21,8 +21,11 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.core.content.ContextCompat
 import androidx.core.content.FileProvider
 import androidx.fragment.app.Fragment
+import androidx.recyclerview.widget.GridLayoutManager
+import androidx.recyclerview.widget.RecyclerView
 import cn.bl1000.weathertable.ble.BLEManager
 import cn.bl1000.weathertable.databinding.FragmentImageProcessingBinding
+import com.google.android.material.bottomsheet.BottomSheetDialog
 import java.io.File
 import java.io.FileOutputStream
 import java.io.IOException
@@ -62,6 +65,7 @@ class ImageProcessingFragment : Fragment() {
     companion object {
         private const val TAG = "ImageProcessingFragment"
         private const val COMMAND_START = 0x01.toByte()
+        private const val COMMAND_START_BINARY = 0x04.toByte() // 新增二值化处理的开始命令
         private const val COMMAND_DATA = 0x02.toByte()
         private const val COMMAND_END = 0x03.toByte()
         private const val SEND_DELAY_MS = 5L // 减少发送延迟以提高速度
@@ -119,6 +123,11 @@ class ImageProcessingFragment : Fragment() {
         // 添加一键画路径生成功能按钮
         binding.generatePathButton.setOnClickListener {
             generateOneStrokePath()
+        }
+        
+        // 添加选择预设图片按钮
+        binding.selectPresetButton.setOnClickListener {
+            selectPresetImage()
         }
     }
 
@@ -527,8 +536,11 @@ class ImageProcessingFragment : Fragment() {
                 currentMtu = mtuFuture.get(5, TimeUnit.SECONDS)
                 Log.d(TAG, "协商MTU完成: $currentMtu")
                 
-                // 2. 发送开始命令（不包含宽高信息，因为是固定的128*128）
-                val startPacket = byteArrayOf(COMMAND_START)
+                // 2. 发送开始命令（根据处理类型发送不同的开始命令）
+                // 判断是否为二值化图片（只有黑白两色）
+                val isBinaryImage = isBinaryImage(bitmap)
+                val startCommand = if (isBinaryImage) COMMAND_START_BINARY else COMMAND_START
+                val startPacket = byteArrayOf(startCommand)
                 
                 val startFuture = bleManager.sendDataAsync(BLEManager.SERVICE_UUID, BLEManager.CHARACTERISTIC_UUID, startPacket)
                 val startResult = startFuture.get(5, TimeUnit.SECONDS) // 等待5秒
@@ -649,10 +661,112 @@ class ImageProcessingFragment : Fragment() {
         }.start()
     }
     
+    /**
+     * 判断是否为二值化图像（只包含黑色和白色像素）
+     */
+    private fun isBinaryImage(bitmap: Bitmap): Boolean {
+        val width = bitmap.width
+        val height = bitmap.height
+        
+        for (y in 0 until height) {
+            for (x in 0 until width) {
+                val pixel = bitmap.getPixel(x, y)
+                val r = (pixel shr 16) and 0xFF
+                val g = (pixel shr 8) and 0xFF
+                val b = pixel and 0xFF
+                
+                // 检查是否为纯黑色或纯白色
+                if (!(r == 0 && g == 0 && b == 0) && !(r == 255 && g == 255 && b == 255)) {
+                    return false // 发现非黑白像素
+                }
+            }
+        }
+        
+        return true // 所有像素都是黑白两色
+    }
+    
     private fun resetSendUI() {
         binding.sendBleButton.isEnabled = true
     }
-
+    
+    private fun selectPresetImage() {
+        // 获取assets/presets目录下的图片文件名列表
+        val presetImages = getPresetImageNames()
+        
+        if (presetImages.isEmpty()) {
+            Toast.makeText(context, "未找到预设图片", Toast.LENGTH_SHORT).show()
+            return
+        }
+        
+        // 创建底部弹出菜单展示预设图片
+        val dialogView = LayoutInflater.from(context).inflate(R.layout.bottom_sheet_preset_images, null)
+        val dialog = BottomSheetDialog(requireContext())
+        dialog.setContentView(dialogView)
+        
+        val recyclerView = dialogView.findViewById<RecyclerView>(R.id.preset_images_recycler_view)
+        recyclerView.layoutManager = GridLayoutManager(context, 4)
+        
+        val adapter = AssetImageAdapter(presetImages) { imageName ->
+            dialog.dismiss()
+            loadPresetImage(imageName)
+        }
+        
+        recyclerView.adapter = adapter
+        dialog.show()
+    }
+    
+    private fun getPresetImageNames(): List<String> {
+        val imageNames = mutableListOf<String>()
+        try {
+            val assetManager = requireContext().assets
+            val files = assetManager.list("presets")
+            if (files != null) {
+                for (file in files) {
+                    // 只包含PNG文件
+                    if (file.lowercase().endsWith(".png")) {
+                        imageNames.add(file)
+                    }
+                }
+            }
+        } catch (e: IOException) {
+            e.printStackTrace()
+        }
+        return imageNames
+    }
+    
+    private fun loadPresetImage(imageName: String) {
+        try {
+            val assetManager = requireContext().assets
+            val inputStream = assetManager.open("presets/$imageName")
+            val bitmap = BitmapFactory.decodeStream(inputStream)
+            inputStream.close()
+            
+            selectedBitmap = bitmap
+            imageView.setImageBitmap(bitmap)
+            binding.editButtonsLayout.visibility = View.VISIBLE
+            binding.processImageButton.visibility = View.VISIBLE
+            binding.processBwButton.visibility = View.VISIBLE
+            binding.generatePathButton.visibility = View.VISIBLE
+            
+            // 如果之前处理过图片，隐藏处理后的图片
+            processedImageView.visibility = View.GONE
+            binding.sendBleButton.visibility = View.GONE
+            binding.sendProgress.visibility = View.GONE
+            processedBitmap = null
+            
+            // 显示原始图片
+            imageView.visibility = View.VISIBLE
+            
+            // 重置旋转角度
+            currentRotation = 0f
+            
+            Toast.makeText(context, "已选择预设图片: $imageName", Toast.LENGTH_SHORT).show()
+        } catch (e: IOException) {
+            e.printStackTrace()
+            Toast.makeText(context, "无法加载预设图片: $imageName", Toast.LENGTH_SHORT).show()
+        }
+    }
+    
     override fun onDestroyView() {
         super.onDestroyView()
         _binding = null
@@ -660,4 +774,41 @@ class ImageProcessingFragment : Fragment() {
         selectedBitmap?.recycle()
         processedBitmap?.recycle()
     }
+}
+
+class AssetImageAdapter(
+    private val imageNames: List<String>,
+    private val onItemClick: (String) -> Unit
+) : RecyclerView.Adapter<AssetImageAdapter.ViewHolder>() {
+
+    class ViewHolder(view: View) : RecyclerView.ViewHolder(view) {
+        val imageView: ImageView = view.findViewById(R.id.preset_image_view)
+    }
+
+    override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): ViewHolder {
+        val view = LayoutInflater.from(parent.context)
+            .inflate(R.layout.item_preset_image, parent, false)
+        return ViewHolder(view)
+    }
+
+    override fun onBindViewHolder(holder: ViewHolder, position: Int) {
+        val imageName = imageNames[position]
+        
+        // 加载图片
+        try {
+            val assetManager = holder.imageView.context.assets
+            val inputStream = assetManager.open("presets/$imageName")
+            val bitmap = BitmapFactory.decodeStream(inputStream)
+            holder.imageView.setImageBitmap(bitmap)
+            inputStream.close()
+        } catch (e: IOException) {
+            e.printStackTrace()
+        }
+        
+        holder.itemView.setOnClickListener {
+            onItemClick(imageName)
+        }
+    }
+
+    override fun getItemCount() = imageNames.size
 }

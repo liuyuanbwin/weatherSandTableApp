@@ -1,136 +1,128 @@
 <?xml version="1.0" encoding="utf-8"?>
-<androidx.core.widget.NestedScrollView xmlns:android="http://schemas.android.com/apk/res/android"
-    xmlns:app="http://schemas.android.com/apk/res-auto"
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:tools="http://schemas.android.com/tools"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
+    android:orientation="vertical"
+    android:padding="16dp"
     tools:context=".ImageProcessingFragment">
 
-    <androidx.constraintlayout.widget.ConstraintLayout
+    <ScrollView
         android:layout_width="match_parent"
-        android:layout_height="match_parent"
-        android:padding="16dp">
-
-        <Button
-            android:id="@+id/select_image_button"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:text="选择或拍摄图片"
-            app:layout_constraintBottom_toTopOf="@id/image_display"
-            app:layout_constraintEnd_toEndOf="parent"
-            app:layout_constraintStart_toStartOf="parent"
-            app:layout_constraintTop_toTopOf="parent" />
-
-        <ImageView
-            android:id="@+id/image_display"
-            android:layout_width="300dp"
-            android:layout_height="300dp"
-            android:layout_marginTop="16dp"
-            android:scaleType="centerCrop"
-            android:background="#EEEEEE"
-            app:layout_constraintBottom_toTopOf="@id/edit_buttons_layout"
-            app:layout_constraintEnd_toEndOf="parent"
-            app:layout_constraintStart_toStartOf="parent"
-            app:layout_constraintTop_toBottomOf="@id/select_image_button" />
+        android:layout_height="match_parent">
 
         <LinearLayout
-            android:id="@+id/edit_buttons_layout"
-            android:layout_width="wrap_content"
+            android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:orientation="horizontal"
-            android:visibility="gone"
-            app:layout_constraintBottom_toTopOf="@id/process_image_button"
-            app:layout_constraintEnd_toEndOf="parent"
-            app:layout_constraintStart_toStartOf="parent"
-            app:layout_constraintTop_toBottomOf="@id/image_display">
+            android:orientation="vertical"
+            android:gravity="center">
+
+            <ImageView
+                android:id="@+id/image_display"
+                android:layout_width="300dp"
+                android:layout_height="300dp"
+                android:layout_marginTop="16dp"
+                android:scaleType="centerCrop"
+                android:background="#EEEEEE" />
+
+            <LinearLayout
+                android:id="@+id/select_image_layout"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal"
+                android:layout_marginTop="16dp">
+
+                <Button
+                    android:id="@+id/select_image_button"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:text="选择或拍摄图片"
+                    android:layout_marginEnd="8dp" />
+
+                <Button
+                    android:id="@+id/select_preset_button"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:text="选择预设图片"
+                    android:layout_marginStart="8dp" />
+
+            </LinearLayout>
+
+            <LinearLayout
+                android:id="@+id/edit_buttons_layout"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal"
+                android:visibility="gone"
+                android:layout_marginTop="16dp">
+
+                <Button
+                    android:id="@+id/rotate_button"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:text="旋转"
+                    android:layout_marginEnd="8dp" />
+
+                <Button
+                    android:id="@+id/crop_button"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:text="裁剪"
+                    android:layout_marginStart="8dp" />
+
+            </LinearLayout>
 
             <Button
-                android:id="@+id/rotate_button"
-                android:layout_width="wrap_content"
+                android:id="@+id/process_image_button"
+                android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:layout_margin="8dp"
-                android:text="旋转" />
+                android:layout_marginTop="16dp"
+                android:text="处理图片"
+                android:visibility="gone" />
 
             <Button
-                android:id="@+id/crop_button"
-                android:layout_width="wrap_content"
+                android:id="@+id/process_bw_button"
+                android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:layout_margin="8dp"
-                android:text="裁剪" />
+                android:layout_marginTop="16dp"
+                android:text="黑白二值化处理"
+                android:visibility="gone" />
+
+            <Button
+                android:id="@+id/generate_path_button"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="16dp"
+                android:text="生成一笔画路径" />
+
+            <ImageView
+                android:id="@+id/processed_image_view"
+                android:layout_width="300dp"
+                android:layout_height="300dp"
+                android:layout_marginTop="16dp"
+                android:visibility="gone"
+                android:scaleType="centerInside" />
+
+            <Button
+                android:id="@+id/send_ble_button"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="16dp"
+                android:text="通过BLE发送"
+                android:visibility="gone" />
+
+            <ProgressBar
+                android:id="@+id/send_progress"
+                style="?android:attr/progressBarStyleHorizontal"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="8dp"
+                android:visibility="gone" />
 
         </LinearLayout>
-
-        <Button
-            android:id="@+id/process_image_button"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="16dp"
-            android:text="处理图片"
-            android:visibility="gone"
-            app:layout_constraintBottom_toTopOf="@id/process_bw_button"
-            app:layout_constraintEnd_toEndOf="parent"
-            app:layout_constraintStart_toStartOf="parent"
-            app:layout_constraintTop_toBottomOf="@id/edit_buttons_layout" />
-            
-        <Button
-            android:id="@+id/process_bw_button"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="16dp"
-            android:text="黑白二值化处理"
-            android:visibility="gone"
-            app:layout_constraintBottom_toTopOf="@id/generate_path_button"
-            app:layout_constraintEnd_toEndOf="parent"
-            app:layout_constraintStart_toStartOf="parent"
-            app:layout_constraintTop_toBottomOf="@id/process_image_button" />
-            
-        <Button
-            android:id="@+id/generate_path_button"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="16dp"
-            android:text="生成一笔画路径"
-            android:visibility="visible"
-            app:layout_constraintBottom_toTopOf="@id/processed_image_view"
-            app:layout_constraintEnd_toEndOf="parent"
-            app:layout_constraintStart_toStartOf="parent"
-            app:layout_constraintTop_toBottomOf="@id/process_bw_button" />
-
-        <ImageView
-            android:id="@+id/processed_image_view"
-            android:layout_width="300dp"
-            android:layout_height="300dp"
-            android:layout_marginTop="16dp"
-            android:visibility="gone"
-            android:scaleType="centerInside"
-            app:layout_constraintBottom_toTopOf="@id/send_ble_button"
-            app:layout_constraintEnd_toEndOf="parent"
-            app:layout_constraintStart_toStartOf="parent"
-            app:layout_constraintTop_toBottomOf="@id/generate_path_button" />
-            
-        <Button
-            android:id="@+id/send_ble_button"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="16dp"
-            android:text="通过BLE发送"
-            android:visibility="gone"
-            app:layout_constraintBottom_toTopOf="@id/send_progress"
-            app:layout_constraintEnd_toEndOf="parent"
-            app:layout_constraintStart_toStartOf="parent"
-            app:layout_constraintTop_toBottomOf="@id/processed_image_view" />
-
-        <ProgressBar
-            android:id="@+id/send_progress"
-            style="?android:attr/progressBarStyleHorizontal"
-            android:layout_width="0dp"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="8dp"
-            android:visibility="gone"
-            app:layout_constraintBottom_toBottomOf="parent"
-            app:layout_constraintEnd_toEndOf="parent"
-            app:layout_constraintStart_toStartOf="parent"
-            app:layout_constraintTop_toBottomOf="@id/send_ble_button" />
-
-    </androidx.constraintlayout.widget.ConstraintLayout>
-</androidx.core.widget.NestedScrollView>
+    </ScrollView>
+</LinearLayout>

@@ -50,6 +50,7 @@ class MainActivity : AppCompatActivity() {
     private lateinit var bleDevicesAdapter: BLEDevicesAdapter
     private var bottomSheetDialog: BottomSheetDialog? = null
     private lateinit var preferences: SharedPreferences
+    private var connectionStatusMenuItem: MenuItem? = null
     
     // 保存连接过的设备地址
     private val connectedDeviceAddresses = mutableSetOf<String>()
@@ -422,7 +423,7 @@ class MainActivity : AppCompatActivity() {
                     // 保存连接过的设备地址
                     connectedDeviceAddresses.add(device.address)
                     lastConnectedDevice = device
-                    updateConnectionStatusBar(true, device.name)
+                    updateConnectionStatusBar(true, device.name ?: "")
                     cancelAutoReconnectTimeout() // 连接成功，取消超时计时
                     
                     // 更新设备列表中的连接状态
@@ -430,7 +431,7 @@ class MainActivity : AppCompatActivity() {
                 } else {
                     Toast.makeText(this, "与设备断开连接: ${device.name}", Toast.LENGTH_SHORT).show()
                     Log.d(TAG, "与设备断开连接: ${device.name} (${device.address})")
-                    updateConnectionStatusBar(false, device.name)
+                    updateConnectionStatusBar(false, "")
                     
                     // 更新设备列表中的连接状态
                     updateDeviceConnectionStatus(device, false)
@@ -508,31 +509,34 @@ class MainActivity : AppCompatActivity() {
     }
     
     private fun initConnectionStatusBar() {
-        // 设置断开连接按钮的点击事件
-        binding.disconnectButton.setOnClickListener {
-            bleManager.disconnect()
-            updateConnectionStatusBar(false, "无")
-            Toast.makeText(this, "已断开与设备的连接", Toast.LENGTH_SHORT).show()
+        // 不再需要初始化底部的连接状态栏，改为使用ActionBar上的按钮
+    }
+    
+    /**
+     * 更新ActionBar上的连接状态按钮
+     */
+    private fun updateConnectionStatusButton(connected: Boolean, deviceName: String) {
+        runOnUiThread {
+            connectionStatusMenuItem?.apply {
+                if (connected) {
+                    // 连接状态 - 显示设备名称，无图标
+                    setTitle(deviceName)
+                    icon = null
+                } else {
+                    // 未连接状态 - 显示黄色圆点图标
+                    setTitle("")
+                    icon = ContextCompat.getDrawable(this@MainActivity, R.drawable.ic_not_connected)
+                }
+                setShowAsAction(MenuItem.SHOW_AS_ACTION_ALWAYS)
+            }
         }
     }
     
     private fun updateConnectionStatusBar(connected: Boolean, deviceName: String?) {
         runOnUiThread {
-            if (connected) {
-                binding.connectionStatusBar.visibility = View.VISIBLE
-                binding.connectionStatusBar.setBackgroundColor(
-                    ContextCompat.getColor(this, android.R.color.holo_green_light)
-                )
-                binding.connectionStatusText.text = "已连接到: $deviceName"
-                binding.disconnectButton.visibility = View.VISIBLE
-            } else {
-                binding.connectionStatusBar.visibility = View.GONE
-                binding.connectionStatusBar.setBackgroundColor(
-                    ContextCompat.getColor(this, android.R.color.darker_gray)
-                )
-                binding.connectionStatusText.text = "未连接到设备"
-                binding.disconnectButton.visibility = View.GONE
-            }
+            updateConnectionStatusButton(connected, deviceName ?: "")
+            
+            // 移除了原来对页面上connection_status_bar的操作
         }
     }
     
@@ -552,12 +556,7 @@ class MainActivity : AppCompatActivity() {
     }
     
     private fun updateConnectionStatusIndicator(indicator: View, isConnected: Boolean) {
-        val color = if (isConnected) {
-            ContextCompat.getColor(this, android.R.color.holo_green_light)
-        } else {
-            ContextCompat.getColor(this, android.R.color.darker_gray)
-        }
-        indicator.setBackgroundColor(color)
+        // 此方法现在不再使用，因为连接状态显示已移动到ActionBar上
     }
     
     /**
@@ -603,6 +602,8 @@ class MainActivity : AppCompatActivity() {
     override fun onCreateOptionsMenu(menu: Menu): Boolean {
         // Inflate the menu; this adds items to the action bar if it is present.
         menuInflater.inflate(R.menu.menu_main, menu)
+        connectionStatusMenuItem = menu.findItem(R.id.action_connection_status)
+        updateConnectionStatusButton(false, "")
         return true
     }
 
@@ -611,6 +612,15 @@ class MainActivity : AppCompatActivity() {
         // automatically handle clicks on the Home/Up button, so long
         // as you specify a parent activity in AndroidManifest.xml.
         return when (item.itemId) {
+            R.id.action_connection_status -> {
+                // 如果已经连接设备，则断开连接
+                if (bleManager.isConnectedToDevice(bleManager.connectedDevice)) {
+                    bleManager.disconnect()
+                    updateConnectionStatusBar(false, "")
+                    Toast.makeText(this, "已断开与设备的连接", Toast.LENGTH_SHORT).show()
+                }
+                true
+            }
             R.id.action_settings -> true
             else -> super.onOptionsItemSelected(item)
         }

@@ -21,36 +21,6 @@
 
     <include layout="@layout/content_main" />
 
-    <!-- 连接状态栏 -->
-    <LinearLayout
-        android:id="@+id/connection_status_bar"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:layout_marginTop="?attr/actionBarSize"
-        android:background="@android:color/darker_gray"
-        android:orientation="horizontal"
-        android:padding="8dp"
-        android:visibility="gone"
-        android:elevation="8dp">
-
-        <TextView
-            android:id="@+id/connection_status_text"
-            android:layout_width="0dp"
-            android:layout_height="wrap_content"
-            android:layout_weight="1"
-            android:text="未连接到设备"
-            android:textColor="@android:color/white"
-            android:textSize="14sp" />
-
-        <Button
-            android:id="@+id/disconnect_button"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:text="断开"
-            android:textSize="12sp" />
-
-    </LinearLayout>
-
     <com.google.android.material.floatingactionbutton.FloatingActionButton
         android:id="@+id/fab"
         android:layout_width="wrap_content"
